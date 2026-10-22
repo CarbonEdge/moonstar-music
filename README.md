@@ -1,6 +1,6 @@
 # moonstar-music
 
-AI music generation and optional publishing loop. Pure HTTP client of the Moonstar gateway (`moonstar-rs`); no sibling-repo imports.
+AI music generation and optional publishing loop. Pure HTTP client of the `moonstar-rs` gateway; no sibling-repo imports.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ Requires `ffmpeg` on `PATH` for mastering and the visualizer.
 
 | Var | Default | Notes |
 |---|---|---|
-| `MOONSTAR_GATEWAY_URL` / `MOONSTAR_AUTH_TOKEN` | - | gateway + bearer token |
+| `MOONSTAR_GATEWAY_URL` / `MOONSTAR_AUTH_TOKEN` | - | moonstar-rs gateway + bearer token (`bash moonstar-rs/scripts/harness.sh token` from the workbench root) |
 | `ELEVENLABS_API_KEY` | - | default music provider |
 | `MINIMAX_API_KEY` | empty | only if `providers.json` selects `minimax_music` |
 | `PUBLISH_ENABLED` | `false` | publishing is off by default |
@@ -50,7 +50,8 @@ Providers are chosen in `moonstar_music/providers.json` (`elevenlabs_music` or `
 ## Running
 
 ```bash
-bash moonstar-music/music.sh          # from the workbench root: gateway + worker + loop
+bash moonstar-music/music.sh          # from the workbench root: moonstar-rs gateway + worker (via harness.sh serve) + loop
+# needs OPENROUTER_API_KEY exported or in moonstar-rs/.env; Ctrl+C runs harness.sh stop
 python -m moonstar_music.cli --once --theme "rainy city lo-fi" --mode instrumental
 python -m moonstar_music.cli --help
 ```
@@ -71,3 +72,6 @@ All tests are mocked (no network, no spend). ffmpeg-dependent tests skip when ff
 - ffmpeg filter strings (mastering and visualizer) have never been run against a real ffmpeg.
 - No live end-to-end run yet.
 - Silence threshold (-50dB / 0.5s) is a guess.
+- Provider-side (music generation) cost is not tracked or capped; `CYCLE_MAX_USD` covers gateway spend only.
+- Rejected or failed cycles do not count toward `MAX_TRACKS_PER_DAY`, so a persistently failing provider retries every interval.
+- Run real-ffmpeg smoke tests of `master` and `render_visualizer` before the first live run.

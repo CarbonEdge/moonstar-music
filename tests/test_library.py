@@ -90,3 +90,42 @@ def test_empty_library_ok(tmp_path):
     lib = Library(str(tmp_path / "nope"))
     assert lib.recent_titles() == []
     assert lib.count_today() == 0
+
+
+def test_corrupt_meta_is_skipped(tmp_path):
+    import pytest as _pt  # noqa: F401
+    lib = Library(str(tmp_path / "root"))
+    m = _mastered(tmp_path)
+    good = lib.add(_brief("Good One"), m, "p", 0)
+    bad = lib.add(_brief("Bad One"), m, "p", 0)
+    (tmp_path / "root" / "library" / bad / "meta.json").write_text('{"created_at": "20')
+    assert lib.count_today() == 1
+    assert lib.recent_titles() == ["Good One"]
+    assert good
+
+
+def test_missing_title_is_skipped(tmp_path):
+    lib = Library(str(tmp_path / "root"))
+    bad = lib.add(_brief("Bad"), _mastered(tmp_path), "p", 0)
+    (tmp_path / "root" / "library" / bad / "brief.json").write_text("{}")
+    assert lib.recent_titles() == []
+    assert lib.count_today() == 0
+
+
+def test_set_published_url_unknown_id_raises(tmp_path):
+    import pytest
+    lib = Library(str(tmp_path / "root"))
+    lib.add(_brief(), _mastered(tmp_path), "p", 0)
+    with pytest.raises(ValueError):
+        lib.set_published_url("nope", "u")
+    with pytest.raises(ValueError):
+        lib.set_published_url("../x", "u")
+
+
+def test_set_published_url_atomic_valid_json(tmp_path):
+    lib = Library(str(tmp_path / "root"))
+    tid = lib.add(_brief(), _mastered(tmp_path), "p", 0)
+    lib.set_published_url(tid, "https://y/1")
+    d = tmp_path / "root" / "library" / tid
+    assert json.loads((d / "meta.json").read_text())["published_url"] == "https://y/1"
+    assert sorted(os.listdir(d)) == ["brief.json", "meta.json", "track.mp3", "track.wav"]

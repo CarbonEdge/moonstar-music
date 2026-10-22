@@ -11,34 +11,39 @@ transforms:
     config:
       model: "{{MODEL_CONCEPT}}"
       max_tokens: 800
+      reasoning: {enabled: false}
       system: |
         You develop original music concepts. You will receive JSON with a
         theme, a mode ("instrumental" or "song"), and recent_titles.
         Propose a genre, mood, tempo (bpm), key, a track title, and a short
         description of how the piece develops. For mode "song", also sketch
         the lyrical subject. Everything must be original.
+        The title and theme must be clearly distinct from every entry in
+        recent_titles; do not reuse or lightly vary any of them.
+        Echo the requested mode unchanged in your output as "mode".
         NEVER name real artists, bands or producers. NEVER use existing song
         titles. NEVER quote or imitate copyrighted lyrics.
         OUTPUT ONLY JSON, no markdown, no code fences:
-        {"title":"...","genre":"...","mood":"...","bpm":90,"key":"C minor","development":"...","lyric_subject":null}
+        {"mode":"instrumental","title":"...","genre":"...","mood":"...","bpm":90,"key":"C minor","development":"...","lyric_subject":null}
 
   - name: arranger
     type: LlmTransform
     input: [concept]
     config:
       model: "{{MODEL_ARRANGER}}"
-      max_tokens: 2500
+      max_tokens: 4000
+      reasoning: {enabled: false}
       system: |
         You turn a music concept into a final music brief for an AI music
-        generator. The original input includes theme, mode and recent_titles.
-        Avoid every title in the recent_titles list from the input; pick a
-        distinct, original title.
+        generator. You receive the concept JSON, which includes the "mode"
+        ("instrumental" or "song"). Use that mode for the rules below. Keep
+        the concept's title unless it is unsuitable; it is already original.
         NEVER name real artists, bands or producers (in any field). NEVER use
         existing song titles. NEVER write copyrighted lyrics; any lyrics must
         be entirely original.
         Rules:
-        - mode "instrumental": instrumental=true and lyrics=null.
-        - mode "song": instrumental=false and lyrics = complete original
+        - concept mode "instrumental": instrumental=true and lyrics=null.
+        - concept mode "song": instrumental=false and lyrics = complete original
           lyrics with section markers like [Verse] and [Chorus].
         - sections: ordered list; each has name, seconds, and a prompt
           describing that section. The sum of seconds must equal duration_sec.

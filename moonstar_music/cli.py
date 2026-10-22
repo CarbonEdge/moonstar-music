@@ -23,18 +23,22 @@ async def _run_once(theme: str, mode: str) -> None:
         await _close_all(gateway, music, publisher)
 
 
+def build_theme_provider(args: argparse.Namespace):
+    if args.theme:
+        theme, mode = args.theme, args.mode or "instrumental"
+        return lambda: (theme, mode)
+    return default_theme_provider(args.mode)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="moonstar-music", description="AI music generation loop")
     parser.add_argument("--once", action="store_true", help="run a single cycle and exit")
     parser.add_argument("--theme", help="theme text (default: rotate built-in themes)")
-    parser.add_argument("--mode", choices=["instrumental", "song"], default="instrumental")
+    parser.add_argument("--mode", choices=["instrumental", "song"], default=None,
+                        help="default: instrumental with --theme, else alternate")
     args = parser.parse_args(argv)
 
-    if args.theme:
-        def theme_provider() -> tuple[str, str]:
-            return args.theme, args.mode
-    else:
-        theme_provider = default_theme_provider()
+    theme_provider = build_theme_provider(args)
 
     if args.once:
         asyncio.run(_run_once(*theme_provider()))

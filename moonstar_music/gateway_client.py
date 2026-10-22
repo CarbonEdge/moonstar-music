@@ -10,6 +10,7 @@ from moonstar_music.models import MusicBrief
 
 _POLL_INTERVAL_SECONDS = 2
 _MAX_POLL_ITERATIONS = 90
+_TERMINAL_FAILURES = ("failed", "rejected", "cancelled", "budget_exceeded")
 
 _PIPELINE_DIR = pathlib.Path(__file__).parent / "pipelines"
 
@@ -73,9 +74,9 @@ class GatewayClient:
                                     raw = raw[4:]
                             return raw.strip() or None, spend_usd
                     return None, spend_usd
-                elif status_data.get("status") in ("failed", "rejected"):
+                elif status_data.get("status") in _TERMINAL_FAILURES:
                     print(f"[gateway_client] Pipeline {status_data['status']}: {status_data}")
-                    return None, 0.0
+                    return None, float(status_data.get("spend_usd") or 0.0)
 
             return None, 0.0
         except Exception as e:

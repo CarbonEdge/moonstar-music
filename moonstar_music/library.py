@@ -1,14 +1,18 @@
 """Plain-file track library: <root>/library/<id>/{track.mp3,track.wav,brief.json,meta.json}."""
 import json
+import logging
 import os
 import re
 import shutil
+import tempfile
 from datetime import datetime, timezone
 
 from moonstar_music.mastering import MasteredTrack
 from moonstar_music.models import MusicBrief
 
 MAX_SLUG_LEN = 50
+
+logger = logging.getLogger(__name__)
 
 
 def _slugify(title: str) -> str:
@@ -53,21 +57,44 @@ class Library:
             json.dump(meta, f, indent=2)
         return track_id
 
+    def _load(self, track_id: str) -> tuple[datetime, str] | None:
+        """(created_at, title) for a track, or None (with a warning) if its files are unreadable."""
+        try:
+            created = datetime.fromisoformat(self._read_json(track_id, "meta.json")["created_at"])
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            title = self._read_json(track_id, "brief.json")["title"]
+            if not isinstance(title, str):
+                raise TypeError("title is not a string")
+            return created, title
+        except Exception as e:
+            logger.warning("Skipping unreadable library entry %s: %s", track_id, e)
+            return None
+
+    def _entries(self) -> list[tuple[datetime, str]]:
+        return [e for e in (self._load(t) for t in self._track_ids()) if e is not None]
+
     def recent_titles(self, n: int = 20) -> list[str]:
-        rows = [(self._read_json(t, "meta.json")["created_at"], t) for t in self._track_ids()]
-        rows.sort(reverse=True)
-        return [self._read_json(t, "brief.json")["title"] for _, t in rows[:n]]
+        rows = sorted(self._entries(), reverse=True)
+        return [title for _, title in rows[:n]]
 
     def count_today(self) -> int:
         today = datetime.now(timezone.utc).date()
-        return sum(
-            1 for t in self._track_ids()
-            if datetime.fromisoformat(self._read_json(t, "meta.json")["created_at"])
-            .astimezone(timezone.utc).date() == today
-        )
+        return sum(1 for created, _ in self._entries() if created.astimezone(timezone.utc).date() == today)
 
     def set_published_url(self, track_id: str, url: str) -> None:
+        if (not track_id or os.path.basename(track_id) != track_id or track_id in (".", "..")
+                or not os.path.isdir(os.path.join(self.dir, track_id))):
+            raise ValueError(f"Unknown track id: {track_id!r}")
         meta = self._read_json(track_id, "meta.json")
         meta["published_url"] = url
-        with open(os.path.join(self.dir, track_id, "meta.json"), "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2)
+        d = os.path.join(self.dir, track_id)
+        fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=2)
+            os.replace(tmp, os.path.join(d, "meta.json"))
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise

@@ -18,14 +18,14 @@ _MAX_GENERATE_ATTEMPTS = 3
 DEFAULT_THEMES = ["rainy city lo-fi", "epic cinematic build", "upbeat synth-pop"]
 
 
-def default_theme_provider() -> Callable[[], tuple[str, str]]:
-    """Rotate generic themes, alternating instrumental/song modes."""
+def default_theme_provider(mode: str | None = None) -> Callable[[], tuple[str, str]]:
+    """Rotate generic themes; alternate modes unless `mode` overrides them."""
     state = {"i": 0}
 
     def _next() -> tuple[str, str]:
         i = state["i"]
         state["i"] += 1
-        return DEFAULT_THEMES[i % len(DEFAULT_THEMES)], ("instrumental" if i % 2 == 0 else "song")
+        return DEFAULT_THEMES[i % len(DEFAULT_THEMES)], (mode or ("instrumental" if i % 2 == 0 else "song"))
 
     return _next
 
@@ -60,6 +60,11 @@ async def run_one_cycle(
     if spend > settings.cycle_max_usd:
         logger.error("Gateway spend $%.2f exceeds cycle cap $%.2f; aborting before rendering",
                      spend, settings.cycle_max_usd)
+        return None
+
+    if brief.instrumental != (mode == "instrumental"):
+        logger.error("Brief instrumental=%s does not match requested mode %r; aborting cycle",
+                     brief.instrumental, mode)
         return None
 
     result = await _generate(music_provider, brief)

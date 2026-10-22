@@ -118,3 +118,20 @@ async def test_loop_survives_cycle_exception(tmp_path, monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await loop.run_music_loop(lambda: ("t", "instrumental"), settings)
     assert cycle.await_count == 2
+
+
+async def test_cycle_aborts_on_mode_mismatch(env):
+    settings, gateway, music, pub, lib = env
+    # brief is instrumental, but a song was requested
+    assert await loop.run_one_cycle(gateway, music, pub, lib, "t", "song", settings) is None
+    music.generate_track.assert_not_awaited()
+    assert lib.count_today() == 0
+
+
+async def test_publish_failure_keeps_track(env, tmp_path):
+    _, gateway, music, pub, lib = env
+    settings = _settings(tmp_path, publish_enabled=True)
+    pub.upload.side_effect = RuntimeError("quota")
+    tid = await loop.run_one_cycle(gateway, music, pub, lib, "t", "instrumental", settings)
+    assert tid and lib.count_today() == 1
+    assert lib._read_json(tid, "meta.json")["published_url"] is None

@@ -110,3 +110,32 @@ async def test_initial_input_carries_theme_mode_recent_titles():
     assert transform == "arranger"
     assert yaml_spec == gc._MUSIC_BRIEF_YAML
     await client.close()
+
+
+@pytest.mark.parametrize("status", ["cancelled", "budget_exceeded", "failed"])
+async def test_terminal_failures_return_immediately_with_spend(status):
+    client = GatewayClient(_settings())
+    mock_post = AsyncMock(return_value=_resp({"session_id": "s-1"}))
+    mock_get = AsyncMock(return_value=_resp({"status": status, "spend_usd": 0.3}))
+    with patch("asyncio.sleep", AsyncMock()), patch.object(client.client, "post", mock_post), \
+            patch.object(client.client, "get", mock_get):
+        result, cost = await client.run_pipeline("yaml", {}, "arranger")
+    assert result is None and abs(cost - 0.3) < 1e-9
+    assert mock_get.await_count == 1
+    await client.close()
+
+
+def test_arranger_gets_mode_from_concept_not_initial_input():
+    y = gc._MUSIC_BRIEF_YAML
+    concept, arranger = y.split("- name: arranger")
+    assert "recent_titles" in concept
+    assert '"mode"' in concept
+    assert "mode" in arranger
+    assert "original input" not in arranger and "from the input" not in arranger
+    assert "recent_titles" not in arranger
+
+
+def test_both_transforms_disable_reasoning_and_arranger_budget():
+    y = gc._MUSIC_BRIEF_YAML
+    assert y.count("reasoning: {enabled: false}") == 2
+    assert "max_tokens: 4000" in y
