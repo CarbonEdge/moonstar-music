@@ -2,6 +2,7 @@ import json
 import pathlib
 
 from moonstar_music.config import Settings
+from moonstar_music.providers.acestep_music import AceStepMusicProvider
 from moonstar_music.providers.base import MusicGenProvider, PublishProvider
 from moonstar_music.providers.elevenlabs_music import ElevenLabsMusicProvider
 from moonstar_music.providers.minimax_music import MiniMaxMusicProvider
@@ -16,7 +17,13 @@ def _load_provider_config() -> dict:
 
 def build_music_provider(settings: Settings) -> MusicGenProvider:
     name = _load_provider_config()["music_provider"]
+    if name == "acestep_music":
+        return AceStepMusicProvider(
+            base_url=settings.acestep_url, output_dir=settings.output_dir, api_key=settings.acestep_api_key
+        )
     if name == "elevenlabs_music":
+        if not settings.elevenlabs_api_key:
+            raise ValueError("music_provider 'elevenlabs_music' requires ELEVENLABS_API_KEY to be set")
         return ElevenLabsMusicProvider(api_key=settings.elevenlabs_api_key, output_dir=settings.output_dir)
     if name == "minimax_music":
         if not settings.minimax_api_key:

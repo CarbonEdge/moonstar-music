@@ -2,6 +2,7 @@ import pytest
 
 from moonstar_music.config import Settings
 from moonstar_music.providers import factory
+from moonstar_music.providers.acestep_music import AceStepMusicProvider
 from moonstar_music.providers.elevenlabs_music import ElevenLabsMusicProvider
 from moonstar_music.providers.minimax_music import MiniMaxMusicProvider
 from moonstar_music.providers.youtube import YouTubeProvider
@@ -14,7 +15,7 @@ def _settings(tmp_path, **kw):
 
 def test_factory_builds_known_providers(tmp_path):
     s = _settings(tmp_path, publish_privacy="unlisted")
-    assert isinstance(factory.build_music_provider(s), ElevenLabsMusicProvider)
+    assert isinstance(factory.build_music_provider(s), AceStepMusicProvider)
     pub = factory.build_publish_provider(s)
     assert isinstance(pub, YouTubeProvider)
     assert pub.privacy_status == "unlisted"
@@ -33,3 +34,15 @@ def test_factory_unknown_provider_raises(tmp_path, monkeypatch):
         factory.build_music_provider(_settings(tmp_path))
     with pytest.raises(ValueError):
         factory.build_publish_provider(_settings(tmp_path))
+
+
+def test_factory_builds_elevenlabs(tmp_path, monkeypatch):
+    monkeypatch.setattr(factory, "_load_provider_config", lambda: {"music_provider": "elevenlabs_music", "publish_provider": "youtube"})
+    assert isinstance(factory.build_music_provider(_settings(tmp_path)), ElevenLabsMusicProvider)
+
+
+def test_factory_elevenlabs_requires_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(factory, "_load_provider_config", lambda: {"music_provider": "elevenlabs_music", "publish_provider": "youtube"})
+    s = Settings(_env_file=None, moonstar_gateway_url="u", moonstar_auth_token="t", output_dir=str(tmp_path))
+    with pytest.raises(ValueError, match="ELEVENLABS_API_KEY"):
+        factory.build_music_provider(s)

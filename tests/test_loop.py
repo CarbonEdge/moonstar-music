@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 
 from moonstar_music import loop
@@ -79,6 +80,15 @@ async def test_cycle_retries_provider_then_aborts(env):
     assert await loop.run_one_cycle(gateway, music, pub, lib, "t", "instrumental", settings) is None
     assert music.generate_track.await_count == 3
     assert lib.count_today() == 0 and lib.recent_titles() == []
+
+
+@pytest.mark.parametrize("status,calls", [(402, 1), (401, 1), (403, 1), (500, 3)])
+async def test_provider_http_errors_retry_only_when_transient(env, status, calls):
+    settings, gateway, music, pub, lib = env
+    req = httpx.Request("POST", "http://x")
+    music.generate_track.side_effect = httpx.HTTPStatusError("e", request=req, response=httpx.Response(status, request=req))
+    assert await loop.run_one_cycle(gateway, music, pub, lib, "t", "instrumental", settings) is None
+    assert music.generate_track.await_count == calls
 
 
 async def test_cycle_rejects_failed_quality_gate(env, tmp_path):

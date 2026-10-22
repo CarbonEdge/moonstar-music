@@ -8,7 +8,9 @@ class Settings(BaseSettings):
 
     moonstar_gateway_url: str
     moonstar_auth_token: str
-    elevenlabs_api_key: str
+    elevenlabs_api_key: str = ""
+    acestep_url: str = "http://localhost:8001"
+    acestep_api_key: str = ""
     minimax_api_key: str = ""
     publish_enabled: bool = False
     youtube_client_id: str = ""

@@ -3,6 +3,8 @@ import logging
 import os
 from typing import Callable
 
+import httpx
+
 from moonstar_music.config import Settings, get_settings
 from moonstar_music.gateway_client import GatewayClient
 from moonstar_music.library import Library
@@ -14,6 +16,7 @@ from moonstar_music.visualizer import render_visualizer
 logger = logging.getLogger(__name__)
 
 _MAX_GENERATE_ATTEMPTS = 3
+_NO_RETRY_STATUSES = (401, 402, 403)
 
 DEFAULT_THEMES = ["rainy city lo-fi", "epic cinematic build", "upbeat synth-pop"]
 
@@ -36,6 +39,8 @@ async def _generate(provider: MusicGenProvider, brief) -> TrackResult | None:
             return await provider.generate_track(brief)
         except Exception as e:
             logger.error("Track generation failed (attempt %d/%d): %s", attempt, _MAX_GENERATE_ATTEMPTS, e)
+            if isinstance(e, httpx.HTTPStatusError) and e.response.status_code in _NO_RETRY_STATUSES:
+                break  # auth/payment errors will not fix themselves on retry
     return None
 
 
