@@ -8,6 +8,8 @@ from dataclasses import dataclass
 FADE_SEC = 2
 TARGET_LUFS = -14
 SILENCE_DB = "-50dB"
+SILENCE_MIN_SEC = 0.5
+SAMPLE_RATE_HZ = 44100
 MIN_DURATION_RATIO = 0.5
 MAX_SILENCE_RATIO = 0.20
 
@@ -40,7 +42,7 @@ def build_duration_cmd(path: str) -> list[str]:
 
 def build_silencedetect_cmd(path: str) -> list[str]:
     return ["ffmpeg", "-hide_banner", "-nostats", "-i", path,
-            "-af", f"silencedetect=noise={SILENCE_DB}:d=0.5", "-f", "null", "-"]
+            "-af", f"silencedetect=noise={SILENCE_DB}:d={SILENCE_MIN_SEC}", "-f", "null", "-"]
 
 
 def parse_duration(stdout: str) -> float:
@@ -62,12 +64,13 @@ def parse_silence_ratio(stderr: str, duration_sec: float) -> float:
 def build_normalize_cmd(src: str, dst: str) -> list[str]:
     trim = f"silenceremove=start_periods=1:start_threshold={SILENCE_DB}"
     af = f"{trim},areverse,{trim},areverse,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11"
-    return ["ffmpeg", "-y", "-i", src, "-af", af, dst]
+    return ["ffmpeg", "-y", "-i", src, "-af", af, "-ar", str(SAMPLE_RATE_HZ), dst]
 
 
 def build_fade_cmd(src: str, dst: str, duration_sec: float) -> list[str]:
     start = max(0.0, duration_sec - FADE_SEC)
-    cmd = ["ffmpeg", "-y", "-i", src, "-af", f"afade=t=out:st={start:.3f}:d={FADE_SEC}"]
+    cmd = ["ffmpeg", "-y", "-i", src, "-af", f"afade=t=out:st={start:.3f}:d={FADE_SEC}",
+           "-ar", str(SAMPLE_RATE_HZ)]
     if dst.lower().endswith(".mp3"):
         cmd += ["-c:a", "libmp3lame", "-b:a", "320k"]
     return cmd + [dst]

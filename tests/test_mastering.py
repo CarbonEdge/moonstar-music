@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -39,13 +40,9 @@ def test_master_produces_files(tmp_path):
     res = master(str(src), str(tmp_path / "out"))
     assert isinstance(res, MasteredTrack)
     assert (tmp_path / "out").exists()
-    assert pathlib_exists(res.mp3_path) and pathlib_exists(res.wav_path)
+    assert Path(res.mp3_path).exists() and Path(res.wav_path).exists()
     assert abs(res.duration_sec - 6) <= 1
 
-
-def pathlib_exists(p):
-    import os
-    return os.path.exists(p)
 
 
 # --- pure command builders / parsers ---
@@ -56,6 +53,7 @@ def test_normalize_cmd_has_loudnorm_and_silenceremove():
     assert "loudnorm=I=-14" in af
     assert "silenceremove" in af and "areverse" in af
     assert cmd[-1] == "mid.wav"
+    assert cmd[cmd.index("-ar") + 1] == "44100"
 
 
 def test_fade_cmd_wav_has_2s_afade_out_at_end():
@@ -64,12 +62,14 @@ def test_fade_cmd_wav_has_2s_afade_out_at_end():
     assert af == "afade=t=out:st=8.000:d=2"
     assert cmd[-1] == "o.wav"
     assert "libmp3lame" not in cmd
+    assert cmd[cmd.index("-ar") + 1] == "44100"
 
 
 def test_fade_cmd_mp3_320k():
     cmd = mastering.build_fade_cmd("mid.wav", "o.mp3", 10.0)
     assert "libmp3lame" in cmd
     assert cmd[cmd.index("-b:a") + 1] == "320k"
+    assert cmd[cmd.index("-ar") + 1] == "44100"
 
 
 def test_fade_start_never_negative():
