@@ -81,3 +81,34 @@ async def test_missing_session_location_raises(tmp_path):
         with pytest.raises(RuntimeError):
             await p.upload(_video(tmp_path), "T", "D")
     await p.close()
+
+
+async def _body(tmp_path, **kw):
+    p = YouTubeProvider("cid", "sec", "refresh", **kw)
+    posts = AsyncMock(side_effect=[_ok({"access_token": "t"}), _ok(headers={"Location": "https://u/x"})])
+    with patch.object(p.client, "post", posts),             patch.object(p.client, "put", AsyncMock(return_value=_ok({"id": "i"}))):
+        await p.upload(_video(tmp_path), "T", "D")
+    await p.close()
+    return posts.call_args_list[1].kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_privacy_defaults_to_private(tmp_path):
+    assert (await _body(tmp_path))["status"]["privacyStatus"] == "private"
+
+
+@pytest.mark.asyncio
+async def test_privacy_public_passes_through(tmp_path):
+    assert (await _body(tmp_path, privacy_status="public"))["status"]["privacyStatus"] == "public"
+
+
+def test_invalid_privacy_raises():
+    with pytest.raises(ValueError):
+        YouTubeProvider("c", "s", "r", privacy_status="everyone")
+
+
+@pytest.mark.asyncio
+async def test_close_closes_client():
+    p = YouTubeProvider("c", "s", "r")
+    await p.close()
+    assert p.client.is_closed

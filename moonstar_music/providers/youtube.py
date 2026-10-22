@@ -2,13 +2,18 @@ import httpx
 
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 _UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
+_PRIVACY = ("private", "unlisted", "public")
 AI_DISCLOSURE = "AI-generated music."
 
 
 class YouTubeProvider:
     """PublishProvider backed by the YouTube Data API v3 (resumable upload)."""
 
-    def __init__(self, client_id: str, client_secret: str, refresh_token: str):
+    def __init__(self, client_id: str, client_secret: str, refresh_token: str,
+                 privacy_status: str = "private"):
+        if privacy_status not in _PRIVACY:
+            raise ValueError(f"privacy_status must be one of {_PRIVACY}, got {privacy_status!r}")
+        self.privacy_status = privacy_status
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
@@ -42,7 +47,7 @@ class YouTubeProvider:
                 "description": f"{description.rstrip()}\n\n{AI_DISCLOSURE}",
                 "categoryId": "10",
             },
-            "status": {"privacyStatus": "public"},
+            "status": {"privacyStatus": self.privacy_status},
         }
         auth = {"Authorization": f"Bearer {access_token}"}
         init = await self.client.post(
