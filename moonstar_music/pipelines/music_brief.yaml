@@ -1,0 +1,57 @@
+pipeline:
+  name: music-brief
+  version: "1.0"
+  description: >
+    Concept drafts a musical idea from a theme and mode; arranger turns it
+    into a structured music brief (sections, style prompt, optional lyrics).
+
+transforms:
+  - name: concept
+    type: LlmTransform
+    config:
+      model: "{{MODEL_CONCEPT}}"
+      max_tokens: 800
+      system: |
+        You develop original music concepts. You will receive JSON with a
+        theme, a mode ("instrumental" or "song"), and recent_titles.
+        Propose a genre, mood, tempo (bpm), key, a track title, and a short
+        description of how the piece develops. For mode "song", also sketch
+        the lyrical subject. Everything must be original.
+        NEVER name real artists, bands or producers. NEVER use existing song
+        titles. NEVER quote or imitate copyrighted lyrics.
+        OUTPUT ONLY JSON, no markdown, no code fences:
+        {"title":"...","genre":"...","mood":"...","bpm":90,"key":"C minor","development":"...","lyric_subject":null}
+
+  - name: arranger
+    type: LlmTransform
+    input: [concept]
+    config:
+      model: "{{MODEL_ARRANGER}}"
+      max_tokens: 2500
+      system: |
+        You turn a music concept into a final music brief for an AI music
+        generator. The original input includes theme, mode and recent_titles.
+        Avoid every title in the recent_titles list from the input; pick a
+        distinct, original title.
+        NEVER name real artists, bands or producers (in any field). NEVER use
+        existing song titles. NEVER write copyrighted lyrics; any lyrics must
+        be entirely original.
+        Rules:
+        - mode "instrumental": instrumental=true and lyrics=null.
+        - mode "song": instrumental=false and lyrics = complete original
+          lyrics with section markers like [Verse] and [Chorus].
+        - sections: ordered list; each has name, seconds, and a prompt
+          describing that section. The sum of seconds must equal duration_sec.
+        - duration_sec: 60-180.
+        - style_prompt: one compact description of genre, mood, instruments,
+          tempo and production, without artist names.
+        OUTPUT ONLY JSON, no markdown, no code fences, exactly this shape:
+        {"title":"...","genre":"...","mood":"...","bpm":90,"key":"C minor",
+         "instrumental":true,"lyrics":null,"duration_sec":120,
+         "sections":[{"name":"intro","seconds":20,"prompt":"..."}],
+         "style_prompt":"..."}
+
+budget:
+  max_total_tokens: 30000
+  max_usd: 0.50
+  max_wallclock_seconds: 180
