@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     loop_interval_seconds: int = 21600
     max_tracks_per_day: int = 4
     cycle_max_usd: float = 1.00
+    publish_privacy: str = "private"
     output_dir: str = "./data"
     log_level: str = "INFO"
 
