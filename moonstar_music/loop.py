@@ -52,6 +52,8 @@ async def run_one_cycle(
     theme: str,
     mode: str,
     settings: Settings,
+    source_audio: str | None = None,
+    cover_strength: float = 0.6,
 ) -> str | None:
     """brief -> generate -> quality gate -> master -> library -> (publish). Returns track id or None."""
     if library.count_today() >= settings.max_tracks_per_day:
@@ -71,6 +73,9 @@ async def run_one_cycle(
         logger.error("Brief instrumental=%s does not match requested mode %r; aborting cycle",
                      brief.instrumental, mode)
         return None
+
+    if source_audio:
+        brief = brief.model_copy(update={"source_audio": source_audio, "cover_strength": cover_strength})
 
     result = await _generate(music_provider, brief)
     if result is None:
@@ -106,7 +111,8 @@ async def _close_all(*objs) -> None:
             await close()
 
 
-async def run_music_loop(theme_provider: Callable[[], tuple[str, str]], settings: Settings | None = None) -> None:
+async def run_music_loop(theme_provider: Callable[[], tuple[str, str]], settings: Settings | None = None,
+                         source_audio: str | None = None, cover_strength: float = 0.6) -> None:
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level)
     gateway = GatewayClient(settings)
@@ -117,7 +123,8 @@ async def run_music_loop(theme_provider: Callable[[], tuple[str, str]], settings
         while True:
             try:
                 theme, mode = theme_provider()
-                await run_one_cycle(gateway, music_provider, publish_provider, library, theme, mode, settings)
+                await run_one_cycle(gateway, music_provider, publish_provider, library, theme, mode, settings,
+                                    source_audio, cover_strength)
             except Exception:
                 logger.exception("Cycle failed")
             await asyncio.sleep(settings.loop_interval_seconds)

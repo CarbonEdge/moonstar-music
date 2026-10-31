@@ -75,3 +75,13 @@ All tests are mocked (no network, no spend). ffmpeg-dependent tests skip when ff
 - Provider-side (music generation) cost is not tracked or capped; `CYCLE_MAX_USD` covers gateway spend only.
 - Rejected or failed cycles do not count toward `MAX_TRACKS_PER_DAY`, so a persistently failing provider retries every interval.
 - Run real-ffmpeg smoke tests of `master` and `render_visualizer` before the first live run.
+
+## Cover mode
+
+Cover an existing audio file (e.g. a Magenta sketch from `moonstar-magenta/scripts/chain.sh`) instead of generating from text. Best strength so far: 0.6.
+
+```bash
+moonstar-music --once --theme "club mix" --mode song --source path/to/sketch.wav --cover-strength 0.6
+```
+
+The brief's lyrics/style still come from the gateway; ACE keeps the source's structure.

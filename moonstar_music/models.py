@@ -18,6 +18,8 @@ class MusicBrief(BaseModel):
     duration_sec: int
     sections: list[Section]
     style_prompt: str
+    source_audio: str | None = None  # set -> ACE cover of this file instead of text2music
+    cover_strength: float = 0.6  # 0..1, higher keeps more of the source
 
     @model_validator(mode="after")
     def _drop_lyrics_if_instrumental(self) -> "MusicBrief":

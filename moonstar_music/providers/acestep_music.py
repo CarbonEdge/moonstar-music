@@ -48,21 +48,29 @@ class AceStepMusicProvider:
         return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
     async def generate_track(self, brief: MusicBrief) -> TrackResult:
+        fields = {
+            "prompt": _build_caption(brief),
+            "lyrics": _INSTRUMENTAL_LYRICS if brief.instrumental else (brief.lyrics or ""),
+            "audio_duration": max(_MIN_SEC, min(_MAX_SEC, brief.duration_sec)),
+            "bpm": brief.bpm,
+            "key_scale": brief.key,
+            "vocal_language": "en",
+            "audio_format": "wav",
+            "batch_size": 1,
+            "thinking": True,
+        }
+        if brief.source_audio:
+            # Cover: JSON paths outside ACE's temp dir are rejected, so upload as multipart.
+            src = pathlib.Path(brief.source_audio)
+            fields.update(task_type="cover", audio_cover_strength=brief.cover_strength, thinking=False)
+            req = {
+                "data": {k: str(v).lower() if isinstance(v, bool) else str(v) for k, v in fields.items()},
+                "files": {"src_audio": (src.name, src.read_bytes(), "audio/wav")},
+            }
+        else:
+            req = {"json": fields}
         resp = await self.client.post(
-            f"{self.base_url}/release_task",
-            json={
-                "prompt": _build_caption(brief),
-                "lyrics": _INSTRUMENTAL_LYRICS if brief.instrumental else (brief.lyrics or ""),
-                "audio_duration": max(_MIN_SEC, min(_MAX_SEC, brief.duration_sec)),
-                "bpm": brief.bpm,
-                "key_scale": brief.key,
-                "vocal_language": "en",
-                "audio_format": "wav",
-                "batch_size": 1,
-                "thinking": True,
-            },
-            headers=self._headers(),
-            timeout=60.0,
+            f"{self.base_url}/release_task", **req, headers=self._headers(), timeout=60.0,
         )
         resp.raise_for_status()
         task_id = resp.json()["data"]["task_id"]

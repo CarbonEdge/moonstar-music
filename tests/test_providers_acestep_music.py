@@ -125,3 +125,21 @@ async def test_api_key_sent_as_bearer(tmp_path):
         await p.generate_track(_brief())
     assert post.call_args_list[0].kwargs["headers"] == {"Authorization": "Bearer secret"}
     await p.close()
+
+
+@pytest.mark.asyncio
+async def test_cover_uploads_multipart(tmp_path):
+    src = tmp_path / "sketch.wav"
+    src.write_bytes(b"RIFFsrc")
+    p = _provider(tmp_path)
+    post = AsyncMock(side_effect=[_submit(), _done()])
+    brief = _brief(instrumental=False, lyrics="la la").model_copy(
+        update={"source_audio": str(src), "cover_strength": 0.4})
+    with patch.object(p.client, "post", post), patch.object(p.client, "get", AsyncMock(return_value=_audio())):
+        await p.generate_track(brief)
+    kw = post.call_args_list[0].kwargs
+    assert "json" not in kw
+    assert kw["data"]["task_type"] == "cover" and kw["data"]["audio_cover_strength"] == "0.4"
+    assert kw["data"]["lyrics"] == "la la" and kw["data"]["thinking"] == "false"
+    assert kw["files"]["src_audio"] == ("sketch.wav", b"RIFFsrc", "audio/wav")
+    await p.close()

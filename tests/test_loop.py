@@ -145,3 +145,11 @@ async def test_publish_failure_keeps_track(env, tmp_path):
     tid = await loop.run_one_cycle(gateway, music, pub, lib, "t", "instrumental", settings)
     assert tid and lib.count_today() == 1
     assert lib._read_json(tid, "meta.json")["published_url"] is None
+
+
+async def test_cycle_attaches_cover_source_to_brief(env):
+    settings, gateway, music, pub, lib = env
+    await loop.run_one_cycle(gateway, music, pub, lib, "t", "instrumental", settings,
+                             source_audio="sketch.wav", cover_strength=0.5)
+    sent = music.generate_track.call_args.args[0]
+    assert sent.source_audio == "sketch.wav" and sent.cover_strength == 0.5
